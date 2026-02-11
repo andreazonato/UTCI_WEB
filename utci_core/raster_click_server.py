@@ -7,8 +7,10 @@ from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
+import numpy as np
 import rasterio
 from rasterio.warp import transform
+from rasterio.windows import Window
 
 NODATA_FLOOR = -9999.0
 
@@ -70,93 +72,107 @@ def resolve_tif_path(solweig_dir: str, folder: str, tif_name: str) -> str | None
     return None
 
 
-def sample_timeseries(ds, lon: float, lat: float) -> list:
+def _xy_from_lonlat(ds, lon: float, lat: float) -> tuple[float, float]:
     if ds.crs is None:
         raise ValueError("Dataset CRS is missing.")
     if ds.crs.to_epsg() != 4326:
         xs, ys = transform("EPSG:4326", ds.crs, [lon], [lat])
-        x, y = xs[0], ys[0]
-    else:
-        x, y = lon, lat
-    values = next(ds.sample([(x, y)], indexes=list(range(1, ds.count + 1))))
-    out = []
-    nodata = ds.nodata
-    for v in values:
-        if v is None:
-            out.append(None)
-            continue
-        try:
-            vf = float(v)
-        except Exception:
-            out.append(None)
-            continue
-        if nodata is not None and vf == nodata:
-            out.append(None)
-        elif not (vf == vf):  # NaN
-            out.append(None)
-        elif vf <= NODATA_FLOOR:
-            out.append(None)
-        else:
-            out.append(vf)
-    return out
+        return xs[0], ys[0]
+    return lon, lat
 
 
-def sample_value(ds, lon: float, lat: float) -> float | None:
-    if ds.crs is None:
-        raise ValueError("Dataset CRS is missing.")
-    if ds.crs.to_epsg() != 4326:
-        xs, ys = transform("EPSG:4326", ds.crs, [lon], [lat])
-        x, y = xs[0], ys[0]
-    else:
-        x, y = lon, lat
-    v = next(ds.sample([(x, y)]))[0]
-    nodata = ds.nodata
+def _valid_value(v: float | None, nodata: float | None) -> bool:
+    if v is None:
+        return False
     try:
         vf = float(v)
     except Exception:
-        return None
+        return False
     if nodata is not None and vf == nodata:
-        return None
+        return False
     if not (vf == vf):
-        return None
+        return False
     if vf <= NODATA_FLOOR:
-        return None
-    return vf
+        return False
+    return True
 
 
-def sample_mean_value(ds, lon: float, lat: float) -> float | None:
-    if ds.count <= 1:
-        return sample_value(ds, lon, lat)
-    if ds.crs is None:
-        raise ValueError("Dataset CRS is missing.")
-    if ds.crs.to_epsg() != 4326:
-        xs, ys = transform("EPSG:4326", ds.crs, [lon], [lat])
-        x, y = xs[0], ys[0]
-    else:
-        x, y = lon, lat
-    values = next(ds.sample([(x, y)], indexes=list(range(1, ds.count + 1))))
-    nodata = ds.nodata
-    acc = 0.0
-    cnt = 0
+def _sanitize_series(values, nodata: float | None) -> list:
+    out = []
     for v in values:
-        try:
-            vf = float(v)
-        except Exception:
-            continue
-        if nodata is not None and vf == nodata:
-            continue
-        if not (vf == vf):
-            continue
-        if vf <= NODATA_FLOOR:
-            continue
-        try:
-            acc += vf
-            cnt += 1
-        except Exception:
-            continue
-    if cnt == 0:
+        out.append(float(v) if _valid_value(v, nodata) else None)
+    return out
+
+
+def _sample_all_bands_xy(ds, x: float, y: float) -> list:
+    vals = next(ds.sample([(x, y)], indexes=list(range(1, ds.count + 1))))
+    return _sanitize_series(vals, ds.nodata)
+
+
+def _find_nearest_valid_xy(ds, x: float, y: float, max_radius: int = 8) -> tuple[float, float] | None:
+    try:
+        row0, col0 = ds.index(x, y)
+    except Exception:
         return None
-    return acc / cnt
+    if ds.width <= 0 or ds.height <= 0:
+        return None
+    row0 = max(0, min(ds.height - 1, int(row0)))
+    col0 = max(0, min(ds.width - 1, int(col0)))
+
+    nodata = ds.nodata
+    for r in range(1, max_radius + 1):
+        r0 = max(0, row0 - r)
+        r1 = min(ds.height - 1, row0 + r)
+        c0 = max(0, col0 - r)
+        c1 = min(ds.width - 1, col0 + r)
+        h = r1 - r0 + 1
+        w = c1 - c0 + 1
+        if h <= 0 or w <= 0:
+            continue
+        arr = ds.read(1, window=Window(c0, r0, w, h))
+        if arr.size == 0:
+            continue
+        mask = np.isfinite(arr) & (arr > NODATA_FLOOR)
+        if nodata is not None:
+            mask &= arr != nodata
+        ys, xs = np.where(mask)
+        if ys.size == 0:
+            continue
+        # Pick closest valid pixel to the clicked location.
+        dy = ys - (row0 - r0)
+        dx = xs - (col0 - c0)
+        idx = int(np.argmin(dx * dx + dy * dy))
+        rr = int(r0 + ys[idx])
+        cc = int(c0 + xs[idx])
+        xx, yy = ds.xy(rr, cc)
+        return float(xx), float(yy)
+    return None
+
+
+def sample_timeseries(ds, lon: float, lat: float, *, allow_nearest: bool = True) -> tuple[list, bool]:
+    x, y = _xy_from_lonlat(ds, lon, lat)
+    series = _sample_all_bands_xy(ds, x, y)
+    if any(v is not None for v in series):
+        return series, False
+    if not allow_nearest:
+        return series, False
+    near = _find_nearest_valid_xy(ds, x, y)
+    if near is None:
+        return series, False
+    return _sample_all_bands_xy(ds, near[0], near[1]), True
+
+
+def sample_value(ds, lon: float, lat: float, *, allow_nearest: bool = True) -> float | None:
+    values, _ = sample_timeseries(ds, lon, lat, allow_nearest=allow_nearest)
+    return values[0] if values else None
+
+
+def sample_mean_value(ds, lon: float, lat: float, *, allow_nearest: bool = True) -> float | None:
+    values, _ = sample_timeseries(ds, lon, lat, allow_nearest=allow_nearest)
+    vals = [float(v) for v in values if v is not None]
+    if not vals:
+        return None
+    return float(sum(vals) / len(vals))
 
 
 class Handler(BaseHTTPRequestHandler):
@@ -207,13 +223,13 @@ class Handler(BaseHTTPRequestHandler):
         try:
             ds = open_dataset(tif_path)
             if parsed.path == "/timeseries":
-                values = sample_timeseries(ds, lng_f, lat_f)
-                payload = {"values": values}
+                values, used_nearest = sample_timeseries(ds, lng_f, lat_f, allow_nearest=True)
+                payload = {"values": values, "used_nearest": used_nearest}
             else:
                 if mean == "1":
-                    value = sample_mean_value(ds, lng_f, lat_f)
+                    value = sample_mean_value(ds, lng_f, lat_f, allow_nearest=True)
                 else:
-                    value = sample_value(ds, lng_f, lat_f)
+                    value = sample_value(ds, lng_f, lat_f, allow_nearest=True)
                 payload = {"value": value}
         except Exception:
             self.send_response(500)
