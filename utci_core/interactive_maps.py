@@ -465,6 +465,7 @@ def build_raster_map(
     overwrite_png: bool,
     raster_click_mode: str,
     raster_click_server_url: str,
+    raster_click_folder: str,
     *,
     verbose: bool = True,
     render_max_dim: int = DEFAULT_RENDER_MAX_DIM,
@@ -540,7 +541,7 @@ def build_raster_map(
     grouped_layers: dict[str, list] = {"Hourly": [], "UTCI categories": []}
     hourly_layers_js: list[dict] = []
     map_bounds = None
-    folder_name = "."  # used by raster_click_server.py
+    folder_name = (raster_click_folder or ".").strip() or "."
     show_first_overlay = True
 
     png_map: dict[tuple[str, str, int], Path] = {}
@@ -1278,6 +1279,12 @@ def cli_main(argv: list[str] | None = None) -> int:
         help="Base URL for raster click server.",
     )
     parser.add_argument(
+        "--raster-click-folder",
+        type=str,
+        default=".",
+        help="Folder value sent to raster click server (relative to SOLWEIG_DIR).",
+    )
+    parser.add_argument(
         "--raster-click-server-autostart",
         action="store_true",
         help="Start raster_click_server.py automatically (binds 127.0.0.1:8765).",
@@ -1326,7 +1333,8 @@ def cli_main(argv: list[str] | None = None) -> int:
     )
     _log(f"hourly_vars={','.join(hourly_vars.keys())}", verbose=verbose)
     _log(
-        f"raster_click_mode={args.raster_click_mode} raster_click_server_url={args.raster_click_server_url} autostart={bool(args.raster_click_server_autostart)}",
+        f"raster_click_mode={args.raster_click_mode} raster_click_server_url={args.raster_click_server_url} "
+        f"raster_click_folder={args.raster_click_folder} autostart={bool(args.raster_click_server_autostart)}",
         verbose=verbose,
     )
 
@@ -1365,6 +1373,7 @@ def cli_main(argv: list[str] | None = None) -> int:
             overwrite_png=args.overwrite_png,
             raster_click_mode=args.raster_click_mode,
             raster_click_server_url=args.raster_click_server_url,
+            raster_click_folder=args.raster_click_folder,
             verbose=verbose,
             render_max_dim=render_max_dim,
             stats_max_dim=stats_max_dim,

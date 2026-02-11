@@ -144,6 +144,7 @@ CMD=(
   --offline
   --raster-click-mode server
   --raster-click-server-url "${API_URL}"
+  --raster-click-folder "${CITY}/${RUN_PERIOD}"
   --hourly-vars "${HOURLY_VARS}"
   --render-max-dim "${RENDER_MAX_DIM}"
   --stats-max-dim "${STATS_MAX_DIM}"
@@ -157,6 +158,7 @@ echo "[build] run_dir=${RUN_DIR}"
 echo "[build] out_dir=${OUT_DIR}"
 echo "[build] python=${PYTHON_BIN}"
 echo "[build] api_url=${API_URL}"
+echo "[build] raster_click_folder=${CITY}/${RUN_PERIOD}"
 echo "[build] hourly_vars=${HOURLY_VARS}"
 PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}" "${CMD[@]}"
 

@@ -4,6 +4,7 @@ import json
 import os
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, HTTPServer
+from pathlib import Path
 from urllib.parse import urlparse, parse_qs
 
 import rasterio
@@ -38,6 +39,35 @@ def parse_args() -> argparse.Namespace:
 @lru_cache(maxsize=8)
 def open_dataset(path: str):
     return rasterio.open(path)
+
+
+@lru_cache(maxsize=4096)
+def resolve_tif_path(solweig_dir: str, folder: str, tif_name: str) -> str | None:
+    """
+    Resolve a tif path robustly:
+    1) exact solweig_dir/folder/tif_name
+    2) exact solweig_dir/tif_name
+    3) unique recursive match under solweig_dir (fallback)
+    """
+    base = Path(solweig_dir).resolve()
+    folder = (folder or "").strip()
+    candidates: list[Path] = []
+
+    if folder:
+        candidates.append((base / folder / tif_name).resolve())
+    candidates.append((base / tif_name).resolve())
+    for cand in candidates:
+        try:
+            if cand.exists() and cand.is_file():
+                return str(cand)
+        except Exception:
+            continue
+
+    # Fallback for portable deployments where folder in map might be ".".
+    matches = list(base.rglob(tif_name))
+    if len(matches) == 1:
+        return str(matches[0].resolve())
+    return None
 
 
 def sample_timeseries(ds, lon: float, lat: float) -> list:
@@ -168,8 +198,8 @@ class Handler(BaseHTTPRequestHandler):
                 tif_name = f"{var}_{date}.tif"
             else:
                 tif_name = tif
-        tif_path = os.path.join(self.server.solweig_dir, folder, tif_name)
-        if not os.path.exists(tif_path):
+        tif_path = resolve_tif_path(self.server.solweig_dir, folder, tif_name)
+        if not tif_path:
             self.send_response(404)
             self.end_headers()
             return
