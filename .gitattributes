@@ -3,3 +3,7 @@ api_data/Torino/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260211.tif filter=lfs d
 api_data/Torino/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260212.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Torino/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260213.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Torino/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Milano/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260211.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Milano/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260212.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Milano/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260213.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Milano/2026-02-11-12:00-2026-02-14-12:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
