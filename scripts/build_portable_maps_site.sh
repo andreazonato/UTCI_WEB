@@ -13,6 +13,7 @@ Usage:
     [--site-root /path/to/repo/site] \
     [--python-bin /path/to/python] \
     [--api-url https://utci-popup-api.onrender.com] \
+    [--hourly-vars UTCI] \
     [--render-max-dim 900] \
     [--stats-max-dim 300] \
     [--overwrite-png] \
@@ -31,6 +32,7 @@ UTCI_ROOT="${UTCI_ROOT:-$HOME/UTCI}"
 SITE_ROOT=""
 PYTHON_BIN="${PYTHON_BIN:-}"
 API_URL="${API_URL:-https://utci-popup-api.onrender.com}"
+HOURLY_VARS="${HOURLY_VARS:-UTCI}"
 RENDER_MAX_DIM="${RENDER_MAX_DIM:-900}"
 STATS_MAX_DIM="${STATS_MAX_DIM:-300}"
 OVERWRITE_PNG=0
@@ -61,6 +63,10 @@ while [[ $# -gt 0 ]]; do
       ;;
     --api-url)
       API_URL="${2:-}"
+      shift 2
+      ;;
+    --hourly-vars)
+      HOURLY_VARS="${2:-}"
       shift 2
       ;;
     --render-max-dim)
@@ -127,6 +133,9 @@ if [[ ! -d "${RUN_DIR}" ]]; then
 fi
 
 mkdir -p "${OUT_DIR}"
+# Rebuild from scratch to avoid stale PNG folders from old var selections.
+rm -rf "${OUT_DIR}"
+mkdir -p "${OUT_DIR}"
 
 CMD=(
   "${PYTHON_BIN}" -m utci_core.interactive_maps
@@ -135,6 +144,7 @@ CMD=(
   --offline
   --raster-click-mode server
   --raster-click-server-url "${API_URL}"
+  --hourly-vars "${HOURLY_VARS}"
   --render-max-dim "${RENDER_MAX_DIM}"
   --stats-max-dim "${STATS_MAX_DIM}"
 )
@@ -147,19 +157,21 @@ echo "[build] run_dir=${RUN_DIR}"
 echo "[build] out_dir=${OUT_DIR}"
 echo "[build] python=${PYTHON_BIN}"
 echo "[build] api_url=${API_URL}"
+echo "[build] hourly_vars=${HOURLY_VARS}"
 PYTHONPATH="${REPO_ROOT}:${PYTHONPATH:-}" "${CMD[@]}"
 
 if [[ "${COPY_API_DATA}" -eq 1 ]]; then
   API_DST="${API_DATA_ROOT}/${CITY}/${RUN_PERIOD}"
+  rm -rf "${API_DST}"
   mkdir -p "${API_DST}"
   echo "[api-data] staging GeoTIFFs -> ${API_DST}"
+  readarray -t _VARS < <(echo "${HOURLY_VARS}" | tr ',' '\n' | sed 's/^[[:space:]]*//;s/[[:space:]]*$//' | awk 'NF')
+  INCLUDE_ARGS=(--include '*/' --include 'SVF_static.tif')
+  for v in "${_VARS[@]}"; do
+    INCLUDE_ARGS+=(--include "${v}_*.tif")
+  done
   rsync -a --prune-empty-dirs \
-    --include '*/' \
-    --include 'SVF_static.tif' \
-    --include 'UTCI_*.tif' \
-    --include 'Ta_*.tif' \
-    --include 'TMRT_*.tif' \
-    --include 'Va10m_*.tif' \
+    "${INCLUDE_ARGS[@]}" \
     --exclude '*' \
     "${RUN_DIR}/" "${API_DST}/"
 fi
