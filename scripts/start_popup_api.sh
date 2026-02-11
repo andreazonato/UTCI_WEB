@@ -9,14 +9,20 @@ PYTHON_BIN="${PYTHON_BIN:-}"
 SCRIPT_DIR="$(cd "$(dirname "${BASH_SOURCE[0]}")" && pwd)"
 REPO_ROOT="$(cd "${SCRIPT_DIR}/.." && pwd)"
 
-if [[ ! -d "${REPO_ROOT}/${SOLWEIG_DIR}" && ! -d "${SOLWEIG_DIR}" ]]; then
-  echo "Popup API data directory not found: ${SOLWEIG_DIR}" >&2
-  echo "Set SOLWEIG_DIR to the folder containing <city>/<run>/... tif files." >&2
-  exit 1
-fi
-
 if [[ -d "${REPO_ROOT}/${SOLWEIG_DIR}" ]]; then
   SOLWEIG_DIR="${REPO_ROOT}/${SOLWEIG_DIR}"
+elif [[ -d "${SOLWEIG_DIR}" ]]; then
+  :
+else
+  # Keep Render deploy healthy even before first data sync.
+  if [[ "${SOLWEIG_DIR}" == /* ]]; then
+    mkdir -p "${SOLWEIG_DIR}"
+  else
+    SOLWEIG_DIR="${REPO_ROOT}/${SOLWEIG_DIR}"
+    mkdir -p "${SOLWEIG_DIR}"
+  fi
+  echo "[popup-api] warning: created empty SOLWEIG_DIR=${SOLWEIG_DIR}" >&2
+  echo "[popup-api] warning: API will return 404 until api_data is published." >&2
 fi
 
 if [[ -z "${PYTHON_BIN}" ]]; then

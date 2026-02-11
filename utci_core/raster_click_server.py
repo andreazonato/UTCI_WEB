@@ -15,6 +15,19 @@ from rasterio.windows import Window
 NODATA_FLOOR = -9999.0
 
 
+def _env_int(name: str, default: int) -> int:
+    raw = os.environ.get(name, "").strip()
+    if not raw:
+        return default
+    try:
+        return int(raw)
+    except Exception:
+        return default
+
+
+NEAREST_MAX_RADIUS = _env_int("NEAREST_MAX_RADIUS", 64)
+
+
 def parse_args() -> argparse.Namespace:
     parser = argparse.ArgumentParser(description="Raster click server for timeseries queries.")
     parser.add_argument(
@@ -109,7 +122,9 @@ def _sample_all_bands_xy(ds, x: float, y: float) -> list:
     return _sanitize_series(vals, ds.nodata)
 
 
-def _find_nearest_valid_xy(ds, x: float, y: float, max_radius: int = 8) -> tuple[float, float] | None:
+def _find_nearest_valid_xy(ds, x: float, y: float, max_radius: int | None = None) -> tuple[float, float] | None:
+    if max_radius is None:
+        max_radius = max(1, int(NEAREST_MAX_RADIUS))
     try:
         row0, col0 = ds.index(x, y)
     except Exception:
@@ -178,11 +193,24 @@ def sample_mean_value(ds, lon: float, lat: float, *, allow_nearest: bool = True)
 class Handler(BaseHTTPRequestHandler):
     def do_GET(self):
         parsed = urlparse(self.path)
-        if parsed.path != "/timeseries":
-            if parsed.path != "/value":
-                self.send_response(404)
-                self.end_headers()
-                return
+        if parsed.path == "/health":
+            payload = json.dumps(
+                {
+                    "status": "ok",
+                    "solweig_dir": str(self.server.solweig_dir),
+                    "nearest_max_radius": int(NEAREST_MAX_RADIUS),
+                }
+            )
+            self.send_response(200)
+            self.send_header("Content-Type", "application/json")
+            self.send_header("Access-Control-Allow-Origin", "*")
+            self.end_headers()
+            self.wfile.write(payload.encode("utf-8"))
+            return
+        if parsed.path not in {"/timeseries", "/value"}:
+            self.send_response(404)
+            self.end_headers()
+            return
 
         qs = parse_qs(parsed.query)
         folder = qs.get("folder", [""])[0]
@@ -249,7 +277,9 @@ def main() -> None:
     server = HTTPServer((args.host, args.port), Handler)
     server.solweig_dir = args.solweig_dir
     print(f"Serving raster click API on http://{args.host}:{args.port}")
+    print(f"Health: http://{args.host}:{args.port}/health")
     print(f"Base solweig dir: {args.solweig_dir}")
+    print(f"Nearest search max radius: {NEAREST_MAX_RADIUS}")
     try:
         server.serve_forever()
     except KeyboardInterrupt:

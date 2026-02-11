@@ -3,9 +3,12 @@ services:
     name: utci-popup-api
     runtime: python
     plan: free
-    buildCommand: pip install --upgrade pip && pip install -r requirements-popup-api.txt
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements-popup-api.txt
     startCommand: ./scripts/start_popup_api.sh
+    healthCheckPath: /health
     envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
       - key: SOLWEIG_DIR
         value: api_data
       - key: PYTHONPATH
