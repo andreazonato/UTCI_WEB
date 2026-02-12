@@ -33,16 +33,21 @@ jobs:
         uses: actions/configure-pages@v5
       - name: Ensure site artifact exists
         run: |
-          mkdir -p site
-          if [ ! -f site/index.html ]; then
-            cat > site/index.html <<'HTML'
-            <!doctype html>
-            <html lang="en">
-            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UTCI Maps</title></head>
-            <body><h1>UTCI Interactive Maps</h1><p>No map bundles published yet.</p></body>
-            </html>
-            HTML
-          fi
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("site/index.html")
+          p.parent.mkdir(parents=True, exist_ok=True)
+          if not p.exists():
+              p.write_text(
+                  "<!doctype html>\n"
+                  "<html lang=\"en\">\n"
+                  "<head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>UTCI Maps</title></head>\n"
+                  "<body><h1>UTCI Interactive Maps</h1><p>No map bundles published yet.</p></body>\n"
+                  "</html>\n",
+                  encoding="utf-8",
+              )
+          PY
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
