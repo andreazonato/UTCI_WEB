@@ -31,6 +31,18 @@ jobs:
         uses: actions/checkout@v4
       - name: Setup Pages
         uses: actions/configure-pages@v5
+      - name: Ensure site artifact exists
+        run: |
+          mkdir -p site
+          if [ ! -f site/index.html ]; then
+            cat > site/index.html <<'HTML'
+            <!doctype html>
+            <html lang="en">
+            <head><meta charset="utf-8"><meta name="viewport" content="width=device-width, initial-scale=1"><title>UTCI Maps</title></head>
+            <body><h1>UTCI Interactive Maps</h1><p>No map bundles published yet.</p></body>
+            </html>
+            HTML
+          fi
       - name: Upload artifact
         uses: actions/upload-pages-artifact@v3
         with:
