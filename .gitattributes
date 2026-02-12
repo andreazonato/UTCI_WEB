@@ -48,3 +48,6 @@ api_data/Como/2026-02-12-12:00-2026-02-15-12:00/UTCI_20260214.tif filter=lfs dif
 api_data/Milano/2026-02-12-12:00-2026-02-15-12:00/UTCI_20260213.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Milano/2026-02-12-12:00-2026-02-15-12:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Milano/2026-02-12-12:00-2026-02-15-12:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Bolzano/2026-02-12-18:00-2026-02-15-18:00/UTCI_20260213.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Bolzano/2026-02-12-18:00-2026-02-15-18:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Bolzano/2026-02-12-18:00-2026-02-15-18:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
