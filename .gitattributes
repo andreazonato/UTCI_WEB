@@ -102,3 +102,6 @@ api_data/Lecco/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260216.tif filter=lfs di
 api_data/Bergamo/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Bergamo/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Bergamo/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260216.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Torino/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Torino/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Torino/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260216.tif filter=lfs diff=lfs merge=lfs -text
