@@ -87,3 +87,6 @@ api_data/Bergamo/2026-02-13-06:00-2026-02-16-06:00/UTCI_20260215.tif filter=lfs 
 api_data/Montagnana/2026-02-13-06:00-2026-02-16-06:00/UTCI_20260213.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Montagnana/2026-02-13-06:00-2026-02-16-06:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Montagnana/2026-02-13-06:00-2026-02-16-06:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Montagnana/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260214.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Montagnana/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260215.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Montagnana/2026-02-13-18:00-2026-02-16-18:00/UTCI_20260216.tif filter=lfs diff=lfs merge=lfs -text
