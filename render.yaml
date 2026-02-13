@@ -13,3 +13,7 @@ services:
         value: api_data
       - key: PYTHONPATH
         value: .
+      - key: REMOTE_API_DATA_BASE
+        value: https://raw.githubusercontent.com/andreazonato/UTCI_WEB/main/api_data
+      - key: REMOTE_FETCH_TIMEOUT
+        value: "60"

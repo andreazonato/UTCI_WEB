@@ -2,6 +2,10 @@
 import argparse
 import json
 import os
+import tempfile
+import urllib.error
+import urllib.parse
+import urllib.request
 from functools import lru_cache
 from http.server import BaseHTTPRequestHandler, HTTPServer
 from pathlib import Path
@@ -26,6 +30,11 @@ def _env_int(name: str, default: int) -> int:
 
 
 NEAREST_MAX_RADIUS = _env_int("NEAREST_MAX_RADIUS", 64)
+REMOTE_API_DATA_BASE = os.environ.get("REMOTE_API_DATA_BASE", "").strip()
+REMOTE_FETCH_TIMEOUT = max(1, _env_int("REMOTE_FETCH_TIMEOUT", 45))
+REMOTE_CACHE_DIR = Path(
+    os.environ.get("REMOTE_CACHE_DIR", tempfile.gettempdir() + "/utci_popup_api_cache")
+).resolve()
 
 
 def parse_args() -> argparse.Namespace:
@@ -56,7 +65,6 @@ def open_dataset(path: str):
     return rasterio.open(path)
 
 
-@lru_cache(maxsize=4096)
 def resolve_tif_path(solweig_dir: str, folder: str, tif_name: str) -> str | None:
     """
     Resolve a tif path robustly:
@@ -82,7 +90,68 @@ def resolve_tif_path(solweig_dir: str, folder: str, tif_name: str) -> str | None
     matches = list(base.rglob(tif_name))
     if len(matches) == 1:
         return str(matches[0].resolve())
+
+    # Optional remote fallback (useful when deployment data lags behind main repo).
+    remote = _fetch_remote_tif(base, folder, tif_name)
+    if remote:
+        return remote
     return None
+
+
+def _safe_rel_path(folder: str, tif_name: str) -> str | None:
+    raw = "/".join([p for p in [folder.strip("/"), tif_name.strip("/")] if p])
+    rel = Path(raw)
+    if rel.is_absolute():
+        return None
+    parts = rel.parts
+    if any(p in {"..", ""} for p in parts):
+        return None
+    return rel.as_posix()
+
+
+def _fetch_remote_tif(base: Path, folder: str, tif_name: str) -> str | None:
+    if not REMOTE_API_DATA_BASE:
+        return None
+    rel = _safe_rel_path(folder, tif_name)
+    if not rel:
+        return None
+
+    local_cache = (REMOTE_CACHE_DIR / rel).resolve()
+    try:
+        local_cache.parent.mkdir(parents=True, exist_ok=True)
+    except Exception:
+        return None
+
+    if local_cache.exists() and local_cache.is_file():
+        return str(local_cache)
+
+    url = REMOTE_API_DATA_BASE.rstrip("/") + "/" + "/".join(
+        urllib.parse.quote(p) for p in rel.split("/")
+    )
+    tmp_path = local_cache.with_suffix(local_cache.suffix + ".tmp")
+    try:
+        req = urllib.request.Request(url, method="GET")
+        with urllib.request.urlopen(req, timeout=REMOTE_FETCH_TIMEOUT) as resp:
+            if int(getattr(resp, "status", 200)) != 200:
+                return None
+            with open(tmp_path, "wb") as out:
+                out.write(resp.read())
+        os.replace(tmp_path, local_cache)
+    except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except Exception:
+            pass
+        return None
+    except Exception:
+        try:
+            if tmp_path.exists():
+                tmp_path.unlink()
+        except Exception:
+            pass
+        return None
+    return str(local_cache)
 
 
 def _xy_from_lonlat(ds, lon: float, lat: float) -> tuple[float, float]:
@@ -260,9 +329,13 @@ class Handler(BaseHTTPRequestHandler):
                     value = sample_value(ds, lng_f, lat_f, allow_nearest=True)
                 payload = {"value": value}
         except Exception:
-            self.send_response(500)
-            self.end_headers()
-            return
+            # Graceful fallback for problematic clicks (out-of-extent, reprojection
+            # issues): return null payload instead of HTTP 500.
+            if parsed.path == "/timeseries":
+                n_bands = int(getattr(locals().get("ds", None), "count", 0) or 0)
+                payload = {"values": [None] * n_bands, "used_nearest": False}
+            else:
+                payload = {"value": None}
 
         payload = json.dumps(payload)
         self.send_response(200)
