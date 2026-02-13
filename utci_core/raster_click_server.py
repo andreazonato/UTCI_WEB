@@ -35,6 +35,7 @@ REMOTE_FETCH_TIMEOUT = max(1, _env_int("REMOTE_FETCH_TIMEOUT", 45))
 REMOTE_CACHE_DIR = Path(
     os.environ.get("REMOTE_CACHE_DIR", tempfile.gettempdir() + "/utci_popup_api_cache")
 ).resolve()
+LFS_POINTER_PREFIX = b"version https://git-lfs.github.com/spec/v1"
 
 
 def parse_args() -> argparse.Namespace:
@@ -130,13 +131,24 @@ def _fetch_remote_tif(base: Path, folder: str, tif_name: str) -> str | None:
     )
     tmp_path = local_cache.with_suffix(local_cache.suffix + ".tmp")
     try:
-        req = urllib.request.Request(url, method="GET")
-        with urllib.request.urlopen(req, timeout=REMOTE_FETCH_TIMEOUT) as resp:
-            if int(getattr(resp, "status", 200)) != 200:
-                return None
-            with open(tmp_path, "wb") as out:
-                out.write(resp.read())
+        if not _download_file(url, tmp_path):
+            return None
         os.replace(tmp_path, local_cache)
+        if _is_lfs_pointer(local_cache):
+            alt_url = _raw_to_media_url(url)
+            if not alt_url:
+                try:
+                    local_cache.unlink()
+                except Exception:
+                    pass
+                return None
+            try:
+                local_cache.unlink()
+            except Exception:
+                pass
+            if not _download_file(alt_url, tmp_path):
+                return None
+            os.replace(tmp_path, local_cache)
     except (urllib.error.URLError, urllib.error.HTTPError, TimeoutError, OSError):
         try:
             if tmp_path.exists():
@@ -152,6 +164,49 @@ def _fetch_remote_tif(base: Path, folder: str, tif_name: str) -> str | None:
             pass
         return None
     return str(local_cache)
+
+
+def _download_file(url: str, out_path: Path) -> bool:
+    req = urllib.request.Request(url, method="GET")
+    with urllib.request.urlopen(req, timeout=REMOTE_FETCH_TIMEOUT) as resp:
+        if int(getattr(resp, "status", 200)) != 200:
+            return False
+        with open(out_path, "wb") as out:
+            while True:
+                chunk = resp.read(1024 * 1024)
+                if not chunk:
+                    break
+                out.write(chunk)
+    return True
+
+
+def _is_lfs_pointer(path: Path) -> bool:
+    try:
+        with open(path, "rb") as f:
+            head = f.read(128)
+        return head.startswith(LFS_POINTER_PREFIX)
+    except Exception:
+        return False
+
+
+def _raw_to_media_url(url: str) -> str | None:
+    parsed = urllib.parse.urlparse(url)
+    if parsed.netloc != "raw.githubusercontent.com":
+        return None
+    parts = [p for p in parsed.path.split("/") if p]
+    if len(parts) < 4:
+        return None
+    media_path = "/media/" + "/".join(parts)
+    return urllib.parse.urlunparse(
+        (
+            parsed.scheme or "https",
+            "media.githubusercontent.com",
+            media_path,
+            parsed.params,
+            parsed.query,
+            parsed.fragment,
+        )
+    )
 
 
 def _xy_from_lonlat(ds, lon: float, lat: float) -> tuple[float, float]:
