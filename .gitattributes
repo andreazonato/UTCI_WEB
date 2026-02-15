@@ -174,3 +174,6 @@ api_data/Montagnana/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260218.tif filter=l
 api_data/Bolzano/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260216.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Bolzano/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260217.tif filter=lfs diff=lfs merge=lfs -text
 api_data/Bolzano/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260218.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Vicenza/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260216.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Vicenza/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260217.tif filter=lfs diff=lfs merge=lfs -text
+api_data/Vicenza/2026-02-15-18:00-2026-02-18-18:00/UTCI_20260218.tif filter=lfs diff=lfs merge=lfs -text
