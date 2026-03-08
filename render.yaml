@@ -1,0 +1,19 @@
+services:
+  - type: web
+    name: utci-popup-api
+    runtime: python
+    plan: free
+    buildCommand: pip install --upgrade pip setuptools wheel && pip install -r requirements-popup-api.txt && (git lfs version >/dev/null 2>&1 && git lfs install --local && git lfs pull || echo "[popup-api] git-lfs unavailable at build time; continuing")
+    startCommand: ./scripts/start_popup_api.sh
+    healthCheckPath: /health
+    envVars:
+      - key: PYTHON_VERSION
+        value: 3.11.10
+      - key: SOLWEIG_DIR
+        value: api_data
+      - key: PYTHONPATH
+        value: .
+      - key: REMOTE_API_DATA_BASE
+        value: https://raw.githubusercontent.com/andreazonato/UTCI_WEB/main/api_data
+      - key: REMOTE_FETCH_TIMEOUT
+        value: "60"

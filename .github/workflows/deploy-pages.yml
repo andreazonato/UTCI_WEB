@@ -1,0 +1,57 @@
+name: Deploy UTCI Maps (GitHub Pages)
+
+on:
+  push:
+    branches:
+      - main
+      - cima_gpu
+      - hpc2020
+    paths:
+      - "site/**"
+      - ".github/workflows/deploy-pages.yml"
+  workflow_dispatch:
+
+permissions:
+  contents: read
+  pages: write
+  id-token: write
+
+concurrency:
+  group: "pages"
+  cancel-in-progress: true
+
+jobs:
+  deploy:
+    environment:
+      name: github-pages
+      url: ${{ steps.deployment.outputs.page_url }}
+    runs-on: ubuntu-latest
+    steps:
+      - name: Checkout
+        uses: actions/checkout@v4
+      - name: Setup Pages
+        uses: actions/configure-pages@v5
+      - name: Ensure site artifact exists
+        run: |
+          python - <<'PY'
+          from pathlib import Path
+
+          p = Path("site/index.html")
+          p.parent.mkdir(parents=True, exist_ok=True)
+          if not p.exists():
+              p.write_text(
+                  "<!doctype html>\n"
+                  "<html lang=\"en\">\n"
+                  "<head><meta charset=\"utf-8\"><meta name=\"viewport\" content=\"width=device-width, initial-scale=1\"><title>UTCI Maps</title></head>\n"
+                  "<body><h1>UTCI Interactive Maps</h1><p>No map bundles published yet.</p></body>\n"
+                  "</html>\n",
+                  encoding="utf-8",
+              )
+          PY
+      - name: Upload artifact
+        uses: actions/upload-pages-artifact@v3
+        with:
+          path: site
+      - name: Deploy to GitHub Pages
+        id: deployment
+        uses: actions/deploy-pages@v4
